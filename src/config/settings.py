@@ -27,7 +27,7 @@ SECRET_KEY = "django-insecure-6o(l@c=^6^2m66$x!t#o9^7)!pt=f3u%q_sq7144t6u4$&+7nx
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS=".python-labs.ru,10.0.0.0/8".split(",")
+ALLOWED_HOSTS = "localhost,127.0.0.1,.python-labs.ru,10.0.0.0/8,".split(",")
 
 ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS if host.strip()]
 
@@ -50,6 +50,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "src.config.middleware.CIDRHostValidationMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -163,3 +164,5 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+
+APPEND_SLASH = False

@@ -21,7 +21,7 @@ from django.urls import path
 from src.interface.api.views import CreateOrderView, GetOrderView
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
-    path("api/orders/", CreateOrderView.as_view(), name="create-order"),
-    path("api/orders/<str:order_id>/", GetOrderView.as_view(), name="get-order"),
+    path("admin", admin.site.urls),
+    path("api/orders", CreateOrderView.as_view(), name="create-order"),
+    path("api/orders/<str:order_id>", GetOrderView.as_view(), name="get-order"),
 ]
