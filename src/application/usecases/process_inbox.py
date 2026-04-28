@@ -34,6 +34,16 @@ class ProcessInboxUseCase:
 
             for event in events:
                 try:
+                    uow.inbox_repo.mark_processed(
+                        InboxEventUpdateDTO(
+                            order_id=event.order_id,
+                            event_type=event.event_type,
+                            status=InboxEventStatusEnum.PROCESSED,
+                        )
+                    )
+                    order = uow.order_repo.get_by_id(event.order_id)
+                    if not order:
+                        continue
                     uow.order_repo.update(
                         OrderUpdateDTO(
                             id=event.order_id,
@@ -54,13 +64,6 @@ class ProcessInboxUseCase:
                             event_type=OutboxEventTypeEnum(event.event_type),
                             payload=outbox_payload,
                             status=OutboxEventStatusEnum.PENDING,
-                        )
-                    )
-                    uow.inbox_repo.mark_processed(
-                        InboxEventUpdateDTO(
-                            order_id=event.order_id,
-                            event_type=event.event_type,
-                            status=InboxEventStatusEnum.PROCESSED,
                         )
                     )
                 except Exception as e:

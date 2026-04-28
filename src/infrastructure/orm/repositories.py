@@ -3,7 +3,6 @@ from dataclasses import asdict
 from enum import Enum
 from uuid import UUID
 
-from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
 
 from src.application.dto import (
@@ -77,20 +76,18 @@ class DjangoOrderRepository(OrderRepository):
         orm_order = OrderORM.objects.create(**create_data)
         return self._to_domain(orm_order)
 
-    def get_by_id(self, order_id: UUID) -> OrderDomain:
-        try:
-            orm_order = OrderORM.objects.get(id=order_id)
-        except ObjectDoesNotExist:
-            raise ValueError(f"Order with id {order_id} not found")
+    def get_by_id(self, order_id: UUID) -> OrderDomain | None:
+        orm_order = OrderORM.objects.filter(id=order_id).first()
+        if not orm_order:
+            return None
         result = self._to_domain(orm_order)
         log.debug("Order id: %s, result: %s", order_id, result)
         return result
 
-    def get_by_idempotency_key(self, idempotency_key: str) -> OrderDomain:
-        try:
-            orm_order = OrderORM.objects.get(idempotency_key=idempotency_key)
-        except ObjectDoesNotExist:
-            raise ValueError(f"Order with idempotency key {idempotency_key} not found")
+    def get_by_idempotency_key(self, idempotency_key: str) -> OrderDomain | None:
+        orm_order = OrderORM.objects.filter(idempotency_key=idempotency_key).first()
+        if not orm_order:
+            return None
         result = self._to_domain(orm_order)
         log.debug("Order with idempotency_key: %s, result: %s", idempotency_key, result)
         return result
@@ -128,11 +125,10 @@ class DjangoPaymentRepository(PaymentRepository):
         orm_payment = PaymentORM.objects.create(**create_data)
         return self._to_domain(orm_payment)
 
-    def get_by_order(self, order_id: UUID) -> PaymentDomain:
-        try:
-            orm_payment = PaymentORM.objects.get(order_id=order_id)
-        except ObjectDoesNotExist:
-            raise ValueError(f"Payment for order {order_id} not found")
+    def get_by_order(self, order_id: UUID) -> PaymentDomain | None:
+        orm_payment = PaymentORM.objects.filter(order_id=order_id).first()
+        if not orm_payment:
+            return None
         result = self._to_domain(orm_payment)
         log.debug("Payment with order_id: %s, result: %s", order_id, result)
         return result
