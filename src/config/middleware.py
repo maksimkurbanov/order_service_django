@@ -58,25 +58,23 @@ class RequestLoggingMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        # Gather URL & method
-        url = request.build_absolute_uri()
         method = request.method
+        # Safely get the host without validation
+        host = request.META.get('HTTP_HOST', '<unknown>')
+        path = request.get_full_path()
+        url = f"{host}{path}"
 
-        # Gather headers (exclude sensitive ones if needed)
         headers = dict(request.headers)
-        # Optional: mask Authorization or Cookie if you prefer
-        if "Authorization" in headers:
-            headers["Authorization"] = "***"
-        if "Cookie" in headers:
-            headers["Cookie"] = "***"
+        if 'Authorization' in headers:
+            headers['Authorization'] = '***'
+        if 'Cookie' in headers:
+            headers['Cookie'] = '***'
 
-        # Gather body – note: this reads the raw bytes
         raw_body = request.body
-        body = raw_body.decode("utf-8", errors="replace") if raw_body else "<empty>"
+        body = raw_body.decode('utf-8', errors='replace') if raw_body else '<empty>'
 
         logger.info(
-            "Incoming request: %s %s\nHeaders: %s\nBody: %s", method, url, headers, body
+            "Incoming request: %s %s\nHeaders: %s\nBody: %s",
+            method, url, headers, body
         )
-
-        response = self.get_response(request)
-        return response
+        return self.get_response(request)
