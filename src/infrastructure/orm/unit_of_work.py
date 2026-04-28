@@ -1,6 +1,6 @@
 from django.db import transaction
 
-from src.domain.interfaces import UnitOfWork
+from src.application.ports.unit_of_work import UnitOfWork
 from src.infrastructure.orm.repositories import (
     DjangoOrderRepository,
     DjangoPaymentRepository,
@@ -10,12 +10,18 @@ from src.infrastructure.orm.repositories import (
 
 
 class DjangoUnitOfWork(UnitOfWork):
-    def __init__(self):
+    def __init__(
+        self,
+        order_repo: DjangoOrderRepository,
+        payment_repo: DjangoPaymentRepository,
+        outbox_repo: DjangoOutboxRepository,
+        inbox_repo: DjangoInboxRepository,
+    ):
         self._atomic = transaction.atomic()
-        self.order_repo = DjangoOrderRepository()
-        self.payment_repo = DjangoPaymentRepository()
-        self.outbox_repo = DjangoOutboxRepository()
-        self.inbox_repo = DjangoInboxRepository()
+        self.order_repo = order_repo
+        self.payment_repo = payment_repo
+        self.outbox_repo = outbox_repo
+        self.inbox_repo = inbox_repo
 
     def __enter__(self):
         self._atomic.__enter__()

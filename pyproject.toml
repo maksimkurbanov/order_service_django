@@ -7,9 +7,12 @@ dependencies = [
     "dependency-injector>=4.49.0",
     "django>=6.0.4",
     "djangorestframework>=3.17.1",
+    "drf-spectacular>=0.29.0",
+    "kafka-python>=2.3.1",
     "pre-commit>=4.6.0",
     "psycopg[binary]>=3.3.3",
     "python-dotenv>=1.2.2",
+    "redis>=7.4.0",
     "requests>=2.33.1",
     "ruff>=0.15.12",
 ]

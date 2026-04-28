@@ -7,7 +7,6 @@ class SrcConfig(AppConfig):
     models_module = "src.infrastructure.orm.models"
 
     def ready(self):
-        # This runs after all apps are loaded and the app registry is ready
         from src.interface.container import Container
 
         container = Container()

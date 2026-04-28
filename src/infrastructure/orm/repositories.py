@@ -4,27 +4,43 @@ from enum import Enum
 from uuid import UUID
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.utils import timezone
 
 from src.application.dto import (
     OrderCreateDTO,
     OrderUpdateDTO,
     PaymentCreateDTO,
     PaymentUpdateDTO,
+    OutboxEventCreateDTO,
+    OutboxEventUpdateDTO,
+    InboxEventCreateDTO,
+    InboxEventUpdateDTO,
 )
+from src.application.ports.repositories import OutboxRepository, InboxRepository
 from src.domain.interfaces import (
     OrderRepository,
     PaymentRepository,
-    OutboxRepository,
-    InboxRepository,
 )
 from src.domain.models import (
     Order as OrderDomain,
     Payment as PaymentDomain,
-    OutboxEvent,
-    InboxEvent,
+    OutboxEvent as OutboxEventDomain,
+    InboxEvent as InboxEventDomain,
 )
-from src.domain.value_objects import OrderStatusEnum, PaymentStatusEnum
-from src.infrastructure.orm.models import Order as OrderORM, Payment as PaymentORM
+from src.domain.value_objects import (
+    OrderStatusEnum,
+    PaymentStatusEnum,
+    OutboxEventTypeEnum,
+    OutboxEventStatusEnum,
+    InboxEventTypeEnum,
+    InboxEventStatusEnum,
+)
+from src.infrastructure.orm.models import (
+    Order as OrderORM,
+    Payment as PaymentORM,
+    Outbox as OutboxEventORM,
+    Inbox as InboxEventORM,
+)
 
 
 log = logging.getLogger(__name__)
@@ -81,7 +97,9 @@ class DjangoOrderRepository(OrderRepository):
 
     def update(self, dto: OrderUpdateDTO) -> OrderDomain:
         log.debug("Updating record for table: orders, with data: %s", dto)
-        updated_count = OrderORM.objects.filter(id=dto.id).update(status=dto.status)
+        updated_count = OrderORM.objects.filter(id=dto.id).update(
+            status=dto.status, updated_at=timezone.now()
+        )
         if updated_count == 0:
             raise ValueError(f"Order with id {dto.id} not found")
         orm_order = OrderORM.objects.get(id=dto.id)
@@ -98,7 +116,7 @@ class DjangoPaymentRepository(PaymentRepository):
             status=PaymentStatusEnum(orm_payment.status),
             idempotency_key=orm_payment.idempotency_key,
             created_at=orm_payment.created_at,
-            update_at=orm_payment.updated_at,
+            updated_at=orm_payment.updated_at,
         )
 
     def _to_orm(self, dto: PaymentCreateDTO | PaymentUpdateDTO) -> dict:
@@ -121,7 +139,9 @@ class DjangoPaymentRepository(PaymentRepository):
 
     def update(self, dto: PaymentUpdateDTO) -> PaymentDomain:
         log.debug("Updating record for table: payments, with data: %s", dto)
-        updated_count = PaymentORM.objects.filter(id=dto.id).update(status=dto.status)
+        updated_count = PaymentORM.objects.filter(id=dto.id).update(
+            status=dto.status, updated_at=timezone.now()
+        )
         if updated_count == 0:
             raise ValueError(f"Payment with id {dto.id} not found")
         orm_payment = PaymentORM.objects.get(id=dto.id)
@@ -129,22 +149,98 @@ class DjangoPaymentRepository(PaymentRepository):
 
 
 class DjangoOutboxRepository(OutboxRepository):
-    def create(self, event: OutboxEvent):
-        pass
+    def _to_domain(self, orm_outbox: OutboxEventORM) -> OutboxEventDomain:
+        return OutboxEventDomain(
+            id=orm_outbox.id,
+            order_id=orm_outbox.order_id,
+            event_type=OutboxEventTypeEnum(orm_outbox.event_type),
+            payload=orm_outbox.payload,
+            status=OutboxEventStatusEnum(orm_outbox.status),
+            created_at=orm_outbox.created_at,
+            updated_at=orm_outbox.updated_at,
+        )
 
-    def get_pending(self) -> OutboxEvent:
-        pass
+    def _to_orm(self, dto: OutboxEventCreateDTO) -> dict:
+        return dto_to_orm_dict(dto)
 
-    def mark_published(self, event_id):
-        pass
+    def create(self, dto: OutboxEventCreateDTO) -> OutboxEventDomain:
+        log.debug("Creating record for table: outbox, with data: %s", dto)
+        create_data = self._to_orm(dto)
+        orm_outbox = OutboxEventORM.objects.create(**create_data)
+        return self._to_domain(orm_outbox)
+
+    def get_pending(self, limit: int = 10) -> list[OutboxEventDomain]:
+        qs = (
+            OutboxEventORM.objects.filter(status=OutboxEventStatusEnum.PENDING)
+            .order_by("created_at")
+            .select_for_update(skip_locked=True)[:limit]
+        )
+        locked_records = list(qs)
+        return [self._to_domain(record) for record in locked_records]
+
+    def mark_published(self, dto: OutboxEventUpdateDTO) -> None:
+        log.debug(
+            "Marking Outbox event with order id: %s, event_type: %s as published",
+            dto.order_id,
+            dto.event_type,
+        )
+        updated_count = OutboxEventORM.objects.filter(
+            order_id=dto.order_id, event_type=dto.event_type
+        ).update(status=dto.status, updated_at=timezone.now())
+        if updated_count == 0:
+            raise ValueError(
+                f"Outbox event with order_id: {dto.order_id}, event_type: {dto.event_type} not found"
+            )
 
 
 class DjangoInboxRepository(InboxRepository):
-    def create(self, event: InboxEvent):
-        pass
+    def _to_domain(self, orm_inbox: InboxEventORM) -> InboxEventDomain:
+        return InboxEventDomain(
+            id=orm_inbox.id,
+            order_id=orm_inbox.order_id,
+            event_type=InboxEventTypeEnum(orm_inbox.event_type),
+            payload=orm_inbox.payload,
+            status=InboxEventStatusEnum(orm_inbox.status),
+            created_at=orm_inbox.created_at,
+            updated_at=orm_inbox.updated_at,
+        )
 
-    def get_pending(self):
-        pass
+    def _to_orm(self, dto: InboxEventCreateDTO) -> dict:
+        return dto_to_orm_dict(dto)
 
-    def mark_processed(self, event_id):
-        pass
+    def create(self, dto: InboxEventCreateDTO):
+        log.debug("Creating record for table: inbox, with data: %s", dto)
+        create_data = self._to_orm(dto)
+        orm_inbox = InboxEventORM.objects.create(**create_data)
+        return self._to_domain(orm_inbox)
+
+    def check_duplicate(self, dto: dict) -> InboxEventORM | None:
+        qs = InboxEventORM.objects.filter(
+            order_id=UUID(dto["order_id"]), event_type=dto["event_type"]
+        )
+        duplicate = qs.first()
+        log.debug("Duplicate records: %s", duplicate)
+        return duplicate
+
+    def get_pending(self, limit: int = 10) -> list[InboxEventDomain]:
+        qs = (
+            InboxEventORM.objects.filter(status=InboxEventStatusEnum.PENDING)
+            .order_by("created_at")
+            .select_for_update(skip_locked=True)[:limit]
+        )
+        locked_records = list(qs)
+        return [self._to_domain(record) for record in locked_records]
+
+    def mark_processed(self, dto: InboxEventUpdateDTO):
+        log.debug(
+            "Marking Inbox event with order id: %s, event_type: %s as processed",
+            dto.order_id,
+            dto.event_type,
+        )
+        updated_count = InboxEventORM.objects.filter(
+            order_id=dto.order_id, event_type=dto.event_type
+        ).update(status=dto.status, updated_at=timezone.now())
+        if updated_count == 0:
+            raise ValueError(
+                f"Inbox event with order_id: {dto.order_id}, event_type: {dto.event_type} not found"
+            )

@@ -1,7 +1,15 @@
 from dataclasses import dataclass
 from uuid import UUID
+from decimal import Decimal
 
-from src.domain.value_objects import OrderStatusEnum, PaymentStatusEnum
+from src.domain.value_objects import (
+    OrderStatusEnum,
+    PaymentStatusEnum,
+    OutboxEventTypeEnum,
+    OutboxEventStatusEnum,
+    InboxEventTypeEnum,
+    InboxEventStatusEnum,
+)
 
 
 @dataclass
@@ -38,14 +46,50 @@ class PaymentCreateDTO:
         if isinstance(self.idempotency_key, UUID):
             self.idempotency_key = str(self.idempotency_key)
         try:
-            from decimal import Decimal
-
             Decimal(self.amount).quantize(Decimal("0.01"))
         except Exception as e:
             raise ValueError(f"Invalid amount: {e}")
+        if isinstance(self.status, str) and not isinstance(
+            self.status, PaymentStatusEnum
+        ):
+            self.status = PaymentStatusEnum.from_string(self.status)
 
 
 @dataclass
 class PaymentUpdateDTO:
     id: UUID
     status: PaymentStatusEnum
+
+
+@dataclass
+class OutboxEventCreateDTO:
+    id: str
+    order_id: UUID
+    event_type: OutboxEventTypeEnum
+    payload: dict
+    status: OutboxEventStatusEnum
+
+
+@dataclass
+class OutboxEventUpdateDTO:
+    order_id: UUID
+    event_type: OutboxEventTypeEnum
+    status: OutboxEventStatusEnum
+
+
+@dataclass
+class InboxEventCreateDTO:
+    id: UUID
+    event_type: str
+    order_id: UUID
+    item_id: UUID
+    quantity: int
+    payload: dict
+    status: InboxEventStatusEnum
+
+
+@dataclass
+class InboxEventUpdateDTO:
+    order_id: UUID
+    event_type: InboxEventTypeEnum
+    status: InboxEventStatusEnum

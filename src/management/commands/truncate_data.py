@@ -23,7 +23,6 @@ class Command(BaseCommand):
         app_labels = options["app_labels"]
         noinput = options["noinput"]
 
-        # Collect tables
         if app_labels:
             tables = []
             for label in app_labels:
@@ -33,11 +32,12 @@ class Command(BaseCommand):
         else:
             tables = connection.introspection.table_names()
 
+        tables = [t for t in tables if t != "django_migrations"]
+
         if not tables:
             self.stdout.write("No tables to truncate.")
             return
 
-        # Ask for confirmation (unless --noinput)
         if not noinput:
             self.stdout.write("The following tables will be truncated:")
             for t in tables:
@@ -51,19 +51,15 @@ class Command(BaseCommand):
         with connection.cursor() as cursor:
             for table in tables:
                 if vendor == "postgresql":
-                    # CASCADE handles foreign keys, RESTART IDENTITY resets sequences
                     cursor.execute(
                         f'TRUNCATE TABLE "{table}" RESTART IDENTITY CASCADE;'
                     )
                 elif vendor == "mysql":
-                    # SET FOREIGN_KEY_CHECKS=0 needed if tables reference each other
                     cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
                     cursor.execute(f"TRUNCATE TABLE `{table}`;")
                     cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
                 elif vendor == "sqlite":
-                    # SQLite has no TRUNCATE; DELETE is fine in dev
                     cursor.execute(f'DELETE FROM "{table}";')
-                    # Reset autoincrement counter
                     cursor.execute(f'DELETE FROM sqlite_sequence WHERE name="{table}";')
                 else:
                     cursor.execute(f'DELETE FROM "{table}";')

@@ -43,7 +43,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Third-party packages
     "rest_framework",
-    # My apps
+    "drf_spectacular",
+    # Local apps
     "src.config.appconfig.SrcConfig",
 ]
 
@@ -115,7 +116,34 @@ AUTH_PASSWORD_VALIDATORS = [
 
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "src.interface.api.exceptions.custom_exception_handler",
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Order Service API",
+    "DESCRIPTION": "A simple API for managing orders",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SERVERS": [{"url": ""}],
+    "TAGS": [
+        {"name": "Order Service", "description": "Order Service operations"},
+    ],
+    "EXTENSIONS_TO_SCHEMA_FUNCTION": lambda generator, request, public: {
+        "x-speakeasy-retries": {
+            "strategy": "backoff",
+            "backoff": {
+                "initialInterval": 500,
+                "maxInterval": 60000,
+                "maxElapsedTime": 3600000,
+                "exponent": 1.5,
+            },
+            "statusCodes": ["5XX"],
+            "retryConnectionErrors": True,
+        }
+    },
+}
+
 
 # Logging
 
@@ -144,6 +172,10 @@ LOGGING = {
             "handlers": ["console"],
             "level": "DEBUG",
             "propagate": True,
+        },
+        "kafka": {
+            "level": "WARNING",
+            "propagate": False,
         },
     },
 }

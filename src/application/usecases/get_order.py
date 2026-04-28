@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from src.domain.interfaces import UnitOfWork
+from src.application.ports.unit_of_work import UnitOfWork
 from src.domain.models import Order
 
 

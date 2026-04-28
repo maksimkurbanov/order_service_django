@@ -1,9 +1,15 @@
 from datetime import datetime
 from dataclasses import dataclass
-from decimal import Decimal
 from uuid import UUID
 
-from src.domain.value_objects import OrderStatusEnum, PaymentStatusEnum
+from src.domain.value_objects import (
+    OrderStatusEnum,
+    PaymentStatusEnum,
+    OutboxEventTypeEnum,
+    OutboxEventStatusEnum,
+    InboxEventTypeEnum,
+    InboxEventStatusEnum,
+)
 
 
 @dataclass
@@ -26,14 +32,14 @@ class Payment:
     status: PaymentStatusEnum
     idempotency_key: str | UUID
     created_at: datetime
-    update_at: datetime
+    updated_at: datetime
 
 
 @dataclass
 class Item:
     id: UUID
     name: str
-    price: Decimal
+    price: str
     available_qty: int
     created_at: datetime
     updated_at: datetime
@@ -41,9 +47,21 @@ class Item:
 
 @dataclass
 class OutboxEvent:
-    pass
+    id: UUID
+    order_id: UUID
+    event_type: OutboxEventTypeEnum
+    payload: dict
+    status: OutboxEventStatusEnum
+    created_at: datetime
+    updated_at: datetime
 
 
 @dataclass
 class InboxEvent:
-    pass
+    id: UUID
+    order_id: UUID
+    event_type: InboxEventTypeEnum
+    payload: dict
+    status: InboxEventStatusEnum
+    created_at: datetime
+    updated_at: datetime

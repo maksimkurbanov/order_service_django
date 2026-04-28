@@ -1,10 +1,18 @@
 import uuid
 from decimal import Decimal
 
+from django.db.models import UniqueConstraint, Q
 from django.utils import timezone
 from django.db import models
 
-from src.domain.value_objects import OrderStatusEnum, PaymentStatusEnum
+from src.domain.value_objects import (
+    OrderStatusEnum,
+    PaymentStatusEnum,
+    OutboxEventStatusEnum,
+    OutboxEventTypeEnum,
+    InboxEventTypeEnum,
+    InboxEventStatusEnum,
+)
 
 
 class Order(models.Model):
@@ -66,7 +74,7 @@ class StringDecimalField(models.DecimalField):
 
 
 class Payment(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.UUIDField(primary_key=True, editable=False)
     user_id = models.UUIDField()
     order = models.OneToOneField(
         "Order", on_delete=models.CASCADE, related_name="payments", db_column="order_id"
@@ -82,3 +90,78 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"Payment {self.id} for Order {self.order_id}"
+
+
+class Outbox(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False)
+    order = models.ForeignKey(
+        "Order",
+        on_delete=models.CASCADE,
+        db_column="order_id",
+        to_field="id",
+    )
+    event_type = models.CharField(choices=OutboxEventTypeEnum.choices())
+    payload = models.JSONField(default=None)
+    status = models.CharField(
+        max_length=20,
+        choices=OutboxEventStatusEnum.choices,
+    )
+    created_at = models.DateTimeField(
+        default=timezone.now,
+        editable=False,
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "outbox"
+
+        constraints = [
+            UniqueConstraint(
+                fields=["order", "event_type"],
+                name="uq_outbox_order_event",
+            ),
+        ]
+
+        indexes = [
+            models.Index(
+                fields=["status", "created_at"],
+                name="ix_outbox_status_pending",
+                condition=Q(status=OutboxEventStatusEnum.PENDING),
+            ),
+        ]
+
+
+class Inbox(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False)
+    order_id = models.UUIDField()
+    event_type = models.CharField(choices=InboxEventTypeEnum.choices())
+    item_id = models.UUIDField()
+    quantity = models.IntegerField()
+    payload = models.JSONField(default=None)
+    status = models.CharField(
+        max_length=20,
+        choices=OutboxEventStatusEnum.choices,
+    )
+    created_at = models.DateTimeField(
+        default=timezone.now,
+        editable=False,
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "inbox"
+
+        constraints = [
+            UniqueConstraint(
+                fields=["order_id", "event_type"],
+                name="uq_inbox_order_event",
+            ),
+        ]
+
+        indexes = [
+            models.Index(
+                fields=["status", "created_at"],
+                name="ix_inbox_status_pending",
+                condition=Q(status=InboxEventStatusEnum.PENDING),
+            ),
+        ]
