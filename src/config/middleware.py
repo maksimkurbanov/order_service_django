@@ -60,21 +60,20 @@ class RequestLoggingMiddleware:
     def __call__(self, request):
         method = request.method
         # Safely get the host without validation
-        host = request.META.get('HTTP_HOST', '<unknown>')
+        host = request.META.get("HTTP_HOST", "<unknown>")
         path = request.get_full_path()
         url = f"{host}{path}"
 
         headers = dict(request.headers)
-        if 'Authorization' in headers:
-            headers['Authorization'] = '***'
-        if 'Cookie' in headers:
-            headers['Cookie'] = '***'
+        if "Authorization" in headers:
+            headers["Authorization"] = "***"
+        if "Cookie" in headers:
+            headers["Cookie"] = "***"
 
         raw_body = request.body
-        body = raw_body.decode('utf-8', errors='replace') if raw_body else '<empty>'
+        body = raw_body.decode("utf-8", errors="replace") if raw_body else "<empty>"
 
         logger.info(
-            "Incoming request: %s %s\nHeaders: %s\nBody: %s",
-            method, url, headers, body
+            "Incoming request: %s %s\nHeaders: %s\nBody: %s", method, url, headers, body
         )
         return self.get_response(request)
