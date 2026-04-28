@@ -49,6 +49,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "src.config.middleware.RequestLoggingMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "src.config.middleware.CIDRHostValidationMiddleware",
@@ -147,6 +148,7 @@ SPECTACULAR_SETTINGS = {
 
 # Logging
 
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -168,6 +170,11 @@ LOGGING = {
             "handlers": ["console"],
             "propagate": False,
         },
+        "incoming.requests": {
+            "handlers": ["console"],  # or your custom handler
+            "level": "DEBUG",
+            "propagate": False,
+        },
         "": {
             "handlers": ["console"],
             "level": "DEBUG",
@@ -179,7 +186,6 @@ LOGGING = {
         },
     },
 }
-
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 

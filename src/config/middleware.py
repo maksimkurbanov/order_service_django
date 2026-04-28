@@ -1,4 +1,6 @@
 import ipaddress
+import logging
+
 from django.conf import settings
 from django.http import HttpResponseBadRequest
 
@@ -46,3 +48,35 @@ class CIDRHostValidationMiddleware:
             return HttpResponseBadRequest(msg, content_type="text/plain")
 
         return self.get_response(request)
+
+
+logger = logging.getLogger("incoming.requests")
+
+
+class RequestLoggingMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Gather URL & method
+        url = request.build_absolute_uri()
+        method = request.method
+
+        # Gather headers (exclude sensitive ones if needed)
+        headers = dict(request.headers)
+        # Optional: mask Authorization or Cookie if you prefer
+        if "Authorization" in headers:
+            headers["Authorization"] = "***"
+        if "Cookie" in headers:
+            headers["Cookie"] = "***"
+
+        # Gather body – note: this reads the raw bytes
+        raw_body = request.body
+        body = raw_body.decode("utf-8", errors="replace") if raw_body else "<empty>"
+
+        logger.info(
+            "Incoming request: %s %s\nHeaders: %s\nBody: %s", method, url, headers, body
+        )
+
+        response = self.get_response(request)
+        return response
